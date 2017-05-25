@@ -1,7 +1,9 @@
 #include "third_party/benchmark/include/benchmark/benchmark.h"
 
-#include <utility>
-#include <cassert>
+#include <memory>
+#include <random>
+#include <list>
+#include <vector>
 
 using namespace std;
 
@@ -11,74 +13,162 @@ struct list_node {
   list_node* next;
 };
 
-namespace {
-template <typename T>
-list_node<T>* prepend(list_node<T>* root, T new_v) {
-  return new list_node<T>{new_v, root};
-}
+class awful_allocator {
+ public:
+  virtual list_node<size_t>* make(list_node<size_t> new_node) = 0;
+  virtual void free() = 0;
 
-template <typename T>
-void delete_list(list_node<T>* root) {
-  while (root) {
-    list_node<T>* prev = root;
-    root = root->next;
-    delete prev;
+ protected:
+  awful_allocator() = default;
+  ~awful_allocator() = default;
+  awful_allocator(const awful_allocator&) = delete;
+  awful_allocator& operator=(const awful_allocator&) = delete;
+};
+
+class mallocator : public awful_allocator {
+ public:
+  explicit mallocator(size_t n) : pool_(n) {}
+
+  list_node<size_t>* make(list_node<size_t> new_node) final {
+    pool_[index_] = make_unique<list_node<size_t>>(new_node);
+    return pool_[index_++].get();
   }
+
+  void free() final {
+    for (auto& elem : pool_)
+      elem.reset();
+    index_ = 0u;
+  }
+
+ private:
+  vector<unique_ptr<list_node<size_t>>> pool_;
+  // we do this instead of reserve, because reserve does capacity check.
+  // and we no the size in advance.
+  size_t index_ = 0u;
+};
+
+class local_pool_allocator : public awful_allocator {
+ public:
+  explicit local_pool_allocator(size_t n) : pool_(n) {}
+
+  list_node<size_t>* make(list_node<size_t> new_node) final {
+    return &pool_[index_];
+  }
+
+  void free() final { index_ = 0u; }
+
+ private:
+  vector<list_node<size_t>> pool_;
+  size_t index_ = 0u;
+};
+
+template <typename T>
+list<T> list_of_shuffeled_memory(size_t n) {
+  if (!n)
+    return {};
+  list<T> middle;
+  if (n & 1)
+    middle.emplace_back();
+
+  const size_t half = n >> 1;
+  auto rhs = list_of_shuffeled_memory<T>(half);
+  auto lhs = list_of_shuffeled_memory<T>(half);
+  lhs.splice(lhs.end(), std::move(middle));
+  lhs.splice(lhs.end(), std::move(rhs));
+  return lhs;
 }
 
-}  // namespace
+class non_local_pool_allocator : public awful_allocator {
+ public:
+  explicit non_local_pool_allocator(size_t n)
+      : pool_{list_of_shuffeled_memory<list_node<size_t>>(n)},
+        pos_{pool_.begin()} {}
 
-list_node<size_t>* generate_sequence_simple(size_t n) {
+  list_node<size_t>* make(list_node<size_t> new_node) final {
+    return &(*pos_++);
+  }
+
+  void free() final { pos_ = pool_.begin(); }
+
+ private:
+  std::list<list_node<size_t>> pool_;
+  std::list<list_node<size_t>>::iterator pos_;
+};
+
+list_node<size_t>* prepend(list_node<size_t>* root,
+                           size_t new_v,
+                           awful_allocator& alloc) {
+  return alloc.make({new_v, root});
+}
+
+__attribute__((noinline))
+list_node<size_t>* generate_sequence_simple(size_t n, awful_allocator& alloc) {
   list_node<size_t>* res = nullptr;
-  while (n) res = prepend(res, n--);
+  while (n)
+    res = prepend(res, n--, alloc);
   return res;
 }
 
-
-list_node<size_t>* generate_sequence_unrolled(size_t n) {
+__attribute__((noinline)) list_node<size_t>* generate_sequence_unrolled(
+    size_t n,
+    awful_allocator& alloc) {
   size_t half = n >> 1;
 
-  list_node<size_t> *first_half = nullptr;
-  list_node<size_t> *second_half = (n & 1) ? new list_node<size_t>{n--, nullptr} : nullptr;
- //  assert((n & 1) == 0);
+  list_node<size_t>* first_half = nullptr;
+  list_node<size_t>* second_half =
+      (n & 1) ? new list_node<size_t>{n--, nullptr} : nullptr;
+  //  assert((n & 1) == 0);
 
   if (!half)
     return second_half;
 
   auto append_nodes = [&] {
-    first_half = prepend(first_half, half--);
-    second_half = prepend(second_half, n--);
+    first_half = prepend(first_half, half--, alloc);
+    second_half = prepend(second_half, n--, alloc);
     return first_half;
   };
 
   auto* last_in_the_first_half = append_nodes();
-  while (half) append_nodes();
+  while (half)
+    append_nodes();
   last_in_the_first_half->next = second_half;
 
   return first_half;
 }
 
-
-template <typename Gen>
+template <typename Allocator, typename Gen>
 void generate_list_benchmark(benchmark::State& state, Gen gen) {
+  size_t n = static_cast<size_t>(state.range(0));
+  Allocator alloc(n);
   while (state.KeepRunning()) {
-    auto* res = gen(static_cast<size_t>(state.range(0)));
+    gen(n, alloc);
     state.PauseTiming();
-    delete_list(res);
+    alloc.free();
     state.ResumeTiming();
   }
 }
 
+template <typename Allocator>
 void generate_list_simple_benchmark(benchmark::State& state) {
-  generate_list_benchmark(state, generate_sequence_simple);
+  generate_list_benchmark<Allocator>(state, generate_sequence_simple);
 }
 
+template <typename Allocator>
 void generate_list_unrolled_benchmark(benchmark::State& state) {
-  generate_list_benchmark(state, generate_sequence_unrolled);
+  generate_list_benchmark<Allocator>(state, generate_sequence_unrolled);
 }
 
-BENCHMARK(generate_list_unrolled_benchmark) -> Arg(1000);
-BENCHMARK(generate_list_simple_benchmark) -> Arg(1000);
+BENCHMARK_TEMPLATE(generate_list_simple_benchmark, mallocator)->Arg(1000);
+BENCHMARK_TEMPLATE(generate_list_unrolled_benchmark, mallocator)->Arg(1000);
+
+BENCHMARK_TEMPLATE(generate_list_simple_benchmark, local_pool_allocator)
+    ->Arg(1000);
+BENCHMARK_TEMPLATE(generate_list_unrolled_benchmark, local_pool_allocator)
+    ->Arg(1000);
+
+BENCHMARK_TEMPLATE(generate_list_simple_benchmark, non_local_pool_allocator)
+    ->Arg(1000);
+BENCHMARK_TEMPLATE(generate_list_unrolled_benchmark, non_local_pool_allocator)
+    ->Arg(1000);
 
 BENCHMARK_MAIN();
-
