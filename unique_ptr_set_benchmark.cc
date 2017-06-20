@@ -12,7 +12,7 @@
 
 namespace {
 
-constexpr size_t kElementsSize = 500;
+constexpr size_t kElementsSize = 100;
 
 using ptr_array = std::array<int*, kElementsSize>;
 
