@@ -68,9 +68,15 @@ void benchmark_copy_unique_full_inplace_merge(benchmark::State& state) {
   });
 }
 
-void benchmark_copy_unique_cached_inplace_merge_begin(benchmark::State& state) {
+void benchmark_copy_unique_inplace_merge_begin(benchmark::State& state) {
   benchmark_unique_insert(state, [](auto& c, auto f, auto l) {
-    bulk_insert::copy_unique_cached_inplace_merge_begin(c, f, l, std::less<>{});
+    bulk_insert::copy_unique_inplace_merge_begin(c, f, l, std::less<>{});
+  });
+}
+
+void benchmark_copy_unique_inplace_merge_upper_bound(benchmark::State& state) {
+  benchmark_unique_insert(state, [](auto& c, auto f, auto l) {
+    bulk_insert::copy_unique_inplace_merge_upper_bound(c, f, l, std::less<>{});
   });
 }
 
@@ -79,7 +85,8 @@ BENCHMARK(benchmark_one_at_a_time);
 BENCHMARK(benchmark_stable_sort_and_unique);
 BENCHMARK(benchmark_naive_inplace_merge);
 BENCHMARK(benchmark_copy_unique_full_inplace_merge);
-BENCHMARK(benchmark_copy_unique_cached_inplace_merge_begin);
+BENCHMARK(benchmark_copy_unique_inplace_merge_begin);
+BENCHMARK(benchmark_copy_unique_inplace_merge_upper_bound);
 
 }  // namespace
 

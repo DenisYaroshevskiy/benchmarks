@@ -80,7 +80,10 @@ template <typename C, typename I, typename P>
 //          InputIterator<I> &&                         //
 //          StrictWeakOrdering<P, ValueType<C>> &&      //
 //          std::is_same_v<ValueType<C>, ValueType<I>>  //
-void copy_unique_cached_inplace_merge_begin(C& c, I f, I l, P p) {
+void copy_unique_inplace_merge_begin(C& c, I f, I l, P p) {
+  if (f == l)
+    return;
+
   auto m = [&c, original_size = c.size() ] {
     return c.begin() + original_size;
   };
@@ -99,6 +102,36 @@ void copy_unique_cached_inplace_merge_begin(C& c, I f, I l, P p) {
   std::sort(m(), c.end(), p);
   c.erase(std::unique(m(), c.end(), helpers::not_fn(p)), c.end());
   std::inplace_merge(c.begin() + cached_merge_begin, m(), c.end(), p);
+}
+
+template <typename C, typename I, typename P>
+// requires Container<C> &&                             //
+//          InputIterator<I> &&                         //
+//          StrictWeakOrdering<P, ValueType<C>> &&      //
+//          std::is_same_v<ValueType<C>, ValueType<I>>  //
+void copy_unique_inplace_merge_upper_bound(C& c, I f, I l, P p) {
+  auto m = [&c, original_size = c.size() ] {
+    return c.begin() + original_size;
+  };
+  auto cached_merge_begin = std::distance(c.begin(), m());
+
+  std::copy_if(f, l, std::inserter(c, c.end()), [&](const auto& x) {
+    auto found = std::lower_bound(c.begin(), m(), x, p);
+    if (found != m() && !p(x, *found))
+      return false;
+
+    cached_merge_begin =
+        std::min(cached_merge_begin, std::distance(c.begin(), found));
+    return true;
+  });
+
+  if (m() == c.end())
+    return;
+
+  std::sort(m(), c.end(), p);
+  c.erase(std::unique(m(), c.end(), helpers::not_fn(p)), c.end());
+  std::inplace_merge(std::upper_bound(c.begin(), m(), *m(), p),  //
+                     m(), c.end(), p);
 }
 
 }  // bulk_insert
