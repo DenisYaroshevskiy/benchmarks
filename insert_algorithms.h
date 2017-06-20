@@ -23,8 +23,8 @@ template <typename C, typename I, typename P>
 //          std::is_same_v<ValueType<C>, ValueType<I>>  //
 void one_at_a_time(C& c, I f, I l, P p) {
   for (; f != l; ++f) {
-    auto where = std::lower_bound(std::begin(c), std::end(c), *f, p);
-    if (where != std::end(c) && !p(*f, *where))
+    auto where = std::lower_bound(c.begin(), c.end(), *f, p);
+    if (where != c.end() && !p(*f, *where))
       continue;
     c.insert(where, *f);
   }
@@ -113,16 +113,10 @@ void copy_unique_inplace_merge_upper_bound(C& c, I f, I l, P p) {
   auto m = [&c, original_size = c.size() ] {
     return c.begin() + original_size;
   };
-  auto cached_merge_begin = std::distance(c.begin(), m());
 
   std::copy_if(f, l, std::inserter(c, c.end()), [&](const auto& x) {
     auto found = std::lower_bound(c.begin(), m(), x, p);
-    if (found != m() && !p(x, *found))
-      return false;
-
-    cached_merge_begin =
-        std::min(cached_merge_begin, std::distance(c.begin(), found));
-    return true;
+    return found == m() || p(x, *found);
   });
 
   if (m() == c.end())
