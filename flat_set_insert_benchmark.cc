@@ -86,6 +86,12 @@ void benchmark_copy_unique_inplace_merge_no_buffer(benchmark::State& state) {
   });
 }
 
+void benchmark_use_end_buffer(benchmark::State& state) {
+  benchmark_unique_insert(state, [](auto& c, auto f, auto l) {
+    bulk_insert::use_end_buffer(c, f, l, std::less<>{});
+  });
+}
+
 BENCHMARK(benchmark_do_nothing);
 BENCHMARK(benchmark_one_at_a_time);
 BENCHMARK(benchmark_stable_sort_and_unique);

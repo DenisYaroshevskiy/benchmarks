@@ -12,6 +12,14 @@ auto not_fn(P p) {
       [p](auto&&... args) { return !p(std::forward<decltype(args)>(args)...); };
 }
 
+template <typename P>
+// requires StrictWeakOrdering<P>
+auto strict_oposite(P p) {
+  return [p](const auto& x, const auto& y) {
+    return p(y, x);
+  };
+}
+
 template <typename P, typename T>
 // requires StrictWeakOrdering<P, T>
 auto less_than(P p, const T& t) {
@@ -59,33 +67,79 @@ I lower_bound_biased(I f, I l, const V& v, P p) {
   return partition_point_biased(f, l, less_than(p, v));
 }
 
-#if 0
 template <typename I1, typename I2, typename O, typename P>
 // requires ForwardIterator<I1> &&
 //          ForwardIterator<I2> &&
-//          OutputIterator<O>
+//          ForwardIterator<O>
+//          StrictWeakOrdering<P, ValueType<I>>
+std::tuple<I1, I2, O, I2> set_union_unique_intersecting_parts(I1 f1,
+                                                              I1 l1,
+                                                              I2 f2,
+                                                              I2 l2,
+                                                              O o,
+                                                              P p) {
+  auto advance_range = [&](auto& f, auto l, const auto& v) {
+    auto m = lower_bound_biased(f, l, v, p);
+    o = std::copy(f, m, o);
+    f = m;
+  };
+
+  auto dropped_counter = f2;
+
+  while (true) {
+    if (f2 == l2)
+      break;
+
+    advance_range(f1, l1, *f2);
+
+    if (f1 == l1)
+      break;
+
+    advance_range(f2, l2, *f1);
+
+    if (f2 == l2)
+      break;
+
+    if (!p(*f1, *f2)) {
+      ++f2;
+      ++dropped_counter;
+    }
+  }
+
+  return {f1, f2, o, dropped_counter};
+}
+
+template <typename I1, typename I2, typename P>
+// requires ForwardIterator<I1> &&
+//          ForwardIterator<I2> &&
+//          StrictWeakOrdering<P, ValueType<I>>
+std::pair<I1, I2> set_union_unique_merge_into_tail(I1 buf,
+                                                   I1 f1,
+                                                   I1 l1,
+                                                   I2 f2,
+                                                   I2 l2,
+                                                   P p) {
+  I2 dropped_counter;
+  std::tie(std::ignore, f2, buf, dropped_counter) =
+      set_union_unique_intersecting_parts(std::make_move_iterator(f1),  //
+                                          std::make_move_iterator(l1),  //
+                                          f2, l2,                       //
+                                          buf, p);                      //
+
+  return {std::copy(f2, l2, buf), dropped_counter};
+}
+
+template <typename I1, typename I2, typename O, typename P>
+// requires ForwardIterator<I1> &&
+//          ForwardIterator<I2> &&
+//          ForwardIterator<O>
 //          StrictWeakOrdering<P, ValueType<I>>
 O set_union_unique(I1 f1, I1 l1, I2 f2, I2 l2, O o, P p) {
-  I1 m1 = l1;
-  I2 m2 = l2;
-  if (f2 == l2)
-    return std::copy(f1, l1, o);
-
-  I1 m1 = lower_bound_biased(f1, l1, *f2, p);
-  o = std::copy(f1, m1, o);
-  if (m1 == l1)
-    return std::copy(f2, l2, o);
-
-  I2 m2 = lower_bound_biased(f2, l2, *m1);
-  o = std::copy(f2, m2, o);
-  if (m2 == l2)
-    return std::copy(m1, l1, o);
-
-  if (!p(*m1, *m2))
-    ++m2;
-  return set_union_unique(m1, l1, m2, l2, o, p);
+  std::tie(f1, f2, o, std::ignore) =
+      set_union_unique_intersecting_parts(f1, l1, f2, l2, o, p);
+  o = std::copy(f1, l1, o);
+  return std::copy(f2, l2, o);
 }
-#endif
 
 }  // helpers
 
@@ -224,6 +278,43 @@ void copy_unique_inplace_merge_no_buffer(C& c, I f, I l, P p) {
   std::sort(m(), c.end(), p);
   c.erase(std::unique(m(), c.end(), helpers::not_fn(p)), c.end());
   helpers::inplace_merge_no_buffer(c.begin(), m(), c.end(), p);
+}
+
+template <typename C, typename I, typename P>
+// requires Container<C> &&                             //
+//          ForwardIterator<I> &&                       //
+//          StrictWeakOrdering<P, ValueType<C>> &&      //
+//          std::is_same_v<ValueType<C>, ValueType<I>>  //
+void use_end_buffer(C& c, I f, I l, P p) {
+  auto new_len = std::distance(f, l);
+  auto original_size = c.size();
+  c.resize(c.size() + new_len * 2);
+
+  auto orig_f = c.begin();
+  auto orig_l = c.begin() + original_size;
+  auto f_in = c.end() - new_len;
+  auto l_in = c.end();
+  auto buf = f_in;
+
+  std::copy(f, l, f_in);
+  std::sort(f_in, l_in, p);
+  l_in = std::unique(f_in, l_in, helpers::not_fn(p));
+
+  using reverse_it = typename C::reverse_iterator;
+  auto move_reverse_it =
+      [](auto it) { return std::make_move_iterator(reverse_it(it)); };
+
+  auto dropped_counter =
+      helpers::set_union_unique_merge_into_tail(
+          reverse_it(buf),                               // buffer
+          reverse_it(orig_l), reverse_it(orig_f),        // original
+          move_reverse_it(l_in), move_reverse_it(f_in),  // new elements
+          helpers::strict_oposite(p))                    // greater
+          .second.base()                                 // move_it
+          .base();                                       // reverse_it
+
+  auto inserted_elements_count = new_len - (c.end() - dropped_counter);
+  c.erase(orig_l + inserted_elements_count, c.end());
 }
 
 }  // bulk_insert

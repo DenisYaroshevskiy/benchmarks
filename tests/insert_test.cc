@@ -17,19 +17,19 @@ void test_unique_insert(F insertion_algorithm) {
   };
 
   insert({});
-  CHECK(c.empty());
+  REQUIRE(c.empty());
   insert({1, 2, 3});
-  CHECK(c == C({1, 2, 3}));
+  REQUIRE(c == C({1, 2, 3}));
   insert({});
-  CHECK(c == C({1, 2, 3}));
+  REQUIRE(c == C({1, 2, 3}));
   insert({1, 2});
-  CHECK(c == C({1, 2, 3}));
+  REQUIRE(c == C({1, 2, 3}));
   insert({6, 7});
-  CHECK(c == C({1, 2, 3, 6, 7}));
+  REQUIRE(c == C({1, 2, 3, 6, 7}));
   insert({4, 6});
-  CHECK(c == C({1, 2, 3, 4, 6, 7}));
+  REQUIRE(c == C({1, 2, 3, 4, 6, 7}));
   insert({5, 1, 2});
-  CHECK(c == C({1, 2, 3, 4, 5, 6, 7}));
+  REQUIRE(c == C({1, 2, 3, 4, 5, 6, 7}));
 }
 
 TEST_CASE("one_at_a_time", "[multiple_insertions]") {
@@ -74,7 +74,22 @@ TEST_CASE("copy_unique_inplace_merge_no_buffer", "[multiple_insertions]") {
   });
 }
 
-TEST_CASE("lower_bound_biased", "[binary_search]") {
+TEST_CASE("use_end_buffer", "[multiple_insertions]") {
+  test_unique_insert([](auto& c, auto f, auto l) {
+    bulk_insert::use_end_buffer(c, f, l, std::less<>{});
+  });
+}
+
+TEST_CASE("use_end_buffer_fails", "[multiple_insertions]") {
+  using C = std::vector<int>;
+  C c = {1, 2, 3, 6, 7};
+  C new_elems = {4, 6};
+  bulk_insert::use_end_buffer(c, new_elems.begin(), new_elems.end(),
+                              std::less<>{});
+  CHECK(c == C({1, 2, 3, 4, 6, 7}));
+}
+
+TEST_CASE("lower_bound_biased", "[multiple_insertions, helpers]") {
   auto test = [](const std::vector<int>& c, const auto& v) {
     auto biased =
         helpers::lower_bound_biased(c.begin(), c.end(), v, std::less<>{});
@@ -91,4 +106,26 @@ TEST_CASE("lower_bound_biased", "[binary_search]") {
   // even number of elements.
   for (int i = 0; i <= 11; ++i)
     test({1, 2, 3, 4, 5, 6, 7, 8, 9, 10}, i);
+}
+
+TEST_CASE("set_union_unique", "[multiple_insertions, helpers]") {
+  auto test = [](const std::vector<int>& lhs, const std::vector<int>& rhs,
+                 const std::vector<int>& expected) {
+    std::vector<int> actual(lhs.size() + rhs.size());
+    auto l =
+        helpers::set_union_unique(lhs.begin(), lhs.end(), rhs.begin(),
+                                  rhs.end(), actual.begin(), std::less<>{});
+    actual.erase(l, actual.end());
+    CHECK(expected == actual);
+  };
+
+  test({}, {}, {});
+  test({1}, {}, {1});
+  test({}, {1}, {1});
+  test({1}, {1}, {1});
+  test({1, 3}, {2}, {1, 2, 3});
+  test({1, 3, 4}, {2}, {1, 2, 3, 4});
+  test({1, 3}, {2, 4}, {1, 2, 3, 4});
+  test({1, 3, 4}, {2, 4}, {1, 2, 3, 4});
+  test({1, 2, 3, 6, 7}, {4, 6}, {1, 2, 3, 4, 6, 7});
 }
