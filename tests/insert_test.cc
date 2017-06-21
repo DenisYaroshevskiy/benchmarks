@@ -68,3 +68,27 @@ TEST_CASE("copy_unique_inplace_merge_upper_bound", "[multiple_insertions]") {
   });
 }
 
+TEST_CASE("copy_unique_inplace_merge_no_buffer", "[multiple_insertions]") {
+  test_unique_insert([](auto& c, auto f, auto l) {
+    bulk_insert::copy_unique_inplace_merge_no_buffer(c, f, l, std::less<>{});
+  });
+}
+
+TEST_CASE("lower_bound_biased", "[binary_search]") {
+  auto test = [](const std::vector<int>& c, const auto& v) {
+    auto biased =
+        helpers::lower_bound_biased(c.begin(), c.end(), v, std::less<>{});
+    auto std = std::lower_bound(c.begin(), c.end(), v);
+    CHECK(biased == std);
+  };
+
+  test({}, 1); // empty range.
+
+  // odd number of elements.
+  for (int i = 0; i <= 10; ++i)
+    test({1, 2, 3, 4, 5, 6, 7, 8, 9}, i);
+
+  // even number of elements.
+  for (int i = 0; i <= 11; ++i)
+    test({1, 2, 3, 4, 5, 6, 7, 8, 9, 10}, i);
+}

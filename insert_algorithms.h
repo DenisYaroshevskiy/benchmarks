@@ -34,6 +34,34 @@ void inplace_merge_no_buffer(I f, I m, I l, P p) {
   inplace_merge_no_buffer(m, m2, l, p);
 }
 
+
+template <typename I, typename P>
+// requires ForwardIterator<I> && UnaryPredicate<P, ValueType<I>>
+I partition_point_biased(I f, I l, P p) {
+  if (f == l || !p(*f))
+    return f;
+  ++f;
+  auto len = std::distance(f, l);
+  auto step = 1;
+  while (len > step) {
+    I m = std::next(f, step);
+    if (!p(*m)) {
+      l = m;
+      break;
+    }
+    f = ++m;
+    len -= step + 1;
+    step <<= 1;
+  }
+  return std::partition_point(f, l, p);
+}
+
+template <typename I, typename V, typename P>
+// requires ForwardIterator<I> && StrictWeakOrdering<P, ValueType<I>>
+I lower_bound_biased(I f, I l, const V& v, P p) {
+  return partition_point_biased(f, l, less_than(p, v));
+}
+
 }  // helpers
 
 namespace bulk_insert {
