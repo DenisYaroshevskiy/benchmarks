@@ -2,23 +2,31 @@
 #include <numeric>
 #include <iostream>
 
-#include "/space/chromium/src/base/algorithm/sorted_ranges.h"
+#include "benchmarks/insert_algorithms.h"
+
 #include "third_party/benchmark/include/benchmark/benchmark.h"
 
 template <typename Searcher>
 void searcher_benchmark(benchmark::State& state, Searcher searcher) {
-  std::vector<int> input(state.range(0));
+  std::vector<int> input(1000u);
   std::iota(input.begin(), input.end(), 0);
-  int looking_for = state.range(1);
+  int looking_for = state.range(0);
   while (state.KeepRunning()) {
     benchmark::DoNotOptimize(searcher(input.begin(), input.end(), looking_for));
   }
 }
 
-void lower_bound_hinted(benchmark::State& state) {
-  searcher_benchmark(state,
-                     [hint = state.range(2)](auto f, auto l, auto looking_for) {
-    return base::LowerBoundHinted(f, f + hint, l, looking_for);
+void lower_bound_linear(benchmark::State& state) {
+  searcher_benchmark(state, [](auto f, auto l, auto looking_for) {
+    auto greater_eq =
+        helpers::not_fn(helpers::less_than(std::less<>{}, looking_for));
+    return std::find_if(f, l, greater_eq);
+  });
+}
+
+void lower_bound_biased(benchmark::State& state) {
+  searcher_benchmark(state, [](auto f, auto l, auto looking_for) {
+    return helpers::lower_bound_biased(f, l, looking_for, std::less<>{});
   });
 }
 
@@ -28,30 +36,24 @@ void lower_bound_standard(benchmark::State& state) {
   });
 }
 
-void test_cases(benchmark::internal::Benchmark* b) {
-  auto add_case = [b](int size, int looking_for, int distance) {
-    int hint = (looking_for - distance);
-    if (hint < 0)
-      hint = looking_for + distance;
-    // std::clamp
-    hint = std::min(std::max(0, hint), size);
-    if (hint > size)
-      hint = size;
+BENCHMARK(lower_bound_linear)->Arg(2);
+BENCHMARK(lower_bound_biased)->Arg(2);
+BENCHMARK(lower_bound_standard)->Arg(2);
 
-    b->Args({size, looking_for, hint});
-  };
+BENCHMARK(lower_bound_linear)->Arg(10);
+BENCHMARK(lower_bound_biased)->Arg(10);
+BENCHMARK(lower_bound_standard)->Arg(10);
 
-  for (int size : {1000})
-    for (int looking_for : {size / 5})
-      for (int distance :
-           {0, 5, -5, 10, -10, 20, -20, 50, -50, size / 10, size / 2})
-        add_case(size, looking_for, distance);
+BENCHMARK(lower_bound_linear)->Arg(50);
+BENCHMARK(lower_bound_biased)->Arg(50);
+BENCHMARK(lower_bound_standard)->Arg(50);
 
-  add_case(1000, 1000, 1000);
-  add_case(1000, 0, 1000);
-}
+BENCHMARK(lower_bound_linear)->Arg(200);
+BENCHMARK(lower_bound_biased)->Arg(200);
+BENCHMARK(lower_bound_standard)->Arg(200);
 
-BENCHMARK(lower_bound_hinted)->Apply(test_cases);
-BENCHMARK(lower_bound_standard)->Apply(test_cases);
+BENCHMARK(lower_bound_linear)->Arg(350);
+BENCHMARK(lower_bound_biased)->Arg(350);
+BENCHMARK(lower_bound_standard)->Arg(350);
 
 BENCHMARK_MAIN();

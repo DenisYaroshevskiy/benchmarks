@@ -15,9 +15,7 @@ auto not_fn(P p) {
 template <typename P, typename T>
 // requires StrictWeakOrdering<P, T>
 auto less_than(P p, const T& t) {
-  return [&](const auto& x) {
-    return p(x, t);
-  };
+  return [&](const auto& x) { return p(x, t); };
 }
 
 template <typename I, typename P>
@@ -28,12 +26,11 @@ void inplace_merge_no_buffer(I f, I m, I l, P p) {
     return;
 
   auto m1 = std::upper_bound(f, m, *m, p);
-  auto m2 = std::lower_bound(m , l, *std::prev(m), p);
+  auto m2 = std::lower_bound(m, l, *std::prev(m), p);
   m = std::rotate(m1, m, m2);
   inplace_merge_no_buffer(f, m1, m, p);
   inplace_merge_no_buffer(m, m2, l, p);
 }
-
 
 template <typename I, typename P>
 // requires ForwardIterator<I> && UnaryPredicate<P, ValueType<I>>
@@ -61,6 +58,34 @@ template <typename I, typename V, typename P>
 I lower_bound_biased(I f, I l, const V& v, P p) {
   return partition_point_biased(f, l, less_than(p, v));
 }
+
+#if 0
+template <typename I1, typename I2, typename O, typename P>
+// requires ForwardIterator<I1> &&
+//          ForwardIterator<I2> &&
+//          OutputIterator<O>
+//          StrictWeakOrdering<P, ValueType<I>>
+O set_union_unique(I1 f1, I1 l1, I2 f2, I2 l2, O o, P p) {
+  I1 m1 = l1;
+  I2 m2 = l2;
+  if (f2 == l2)
+    return std::copy(f1, l1, o);
+
+  I1 m1 = lower_bound_biased(f1, l1, *f2, p);
+  o = std::copy(f1, m1, o);
+  if (m1 == l1)
+    return std::copy(f2, l2, o);
+
+  I2 m2 = lower_bound_biased(f2, l2, *m1);
+  o = std::copy(f2, m2, o);
+  if (m2 == l2)
+    return std::copy(m1, l1, o);
+
+  if (!p(*m1, *m2))
+    ++m2;
+  return set_union_unique(m1, l1, m2, l2, o, p);
+}
+#endif
 
 }  // helpers
 
