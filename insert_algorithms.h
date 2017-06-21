@@ -12,6 +12,28 @@ auto not_fn(P p) {
       [p](auto&&... args) { return !p(std::forward<decltype(args)>(args)...); };
 }
 
+template <typename P, typename T>
+// requires StrictWeakOrdering<P, T>
+auto less_than(P p, const T& t) {
+  return [&](const auto& x) {
+    return p(x, t);
+  };
+}
+
+template <typename I, typename P>
+// requires BidirectionalIterator<I> &&         //
+//          StrictWeakOrdering<P, ValueType<I>> //
+void inplace_merge_no_buffer(I f, I m, I l, P p) {
+  if (f == m || m == l)
+    return;
+
+  auto m1 = std::upper_bound(f, m, *m, p);
+  auto m2 = std::lower_bound(m , l, *std::prev(m), p);
+  m = std::rotate(m1, m, m2);
+  inplace_merge_no_buffer(f, m1, m, p);
+  inplace_merge_no_buffer(m, m2, l, p);
+}
+
 }  // helpers
 
 namespace bulk_insert {
@@ -126,6 +148,29 @@ void copy_unique_inplace_merge_upper_bound(C& c, I f, I l, P p) {
   c.erase(std::unique(m(), c.end(), helpers::not_fn(p)), c.end());
   std::inplace_merge(std::upper_bound(c.begin(), m(), *m(), p),  //
                      m(), c.end(), p);
+}
+
+template <typename C, typename I, typename P>
+// requires Container<C> &&                             //
+//          InputIterator<I> &&                         //
+//          StrictWeakOrdering<P, ValueType<C>> &&      //
+//          std::is_same_v<ValueType<C>, ValueType<I>>  //
+void copy_unique_inplace_merge_no_buffer(C& c, I f, I l, P p) {
+  auto m = [&c, original_size = c.size() ] {
+    return c.begin() + original_size;
+  };
+
+  std::copy_if(f, l, std::inserter(c, c.end()), [&](const auto& x) {
+    auto found = std::lower_bound(c.begin(), m(), x, p);
+    return found == m() || p(x, *found);
+  });
+
+  if (m() == c.end())
+    return;
+
+  std::sort(m(), c.end(), p);
+  c.erase(std::unique(m(), c.end(), helpers::not_fn(p)), c.end());
+  helpers::inplace_merge_no_buffer(c.begin(), m(), c.end(), p);
 }
 
 }  // bulk_insert
