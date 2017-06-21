@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <iterator>
+#include <vector>
 
 namespace helpers {
 
@@ -72,19 +73,17 @@ template <typename I1, typename I2, typename O, typename P>
 //          ForwardIterator<I2> &&
 //          ForwardIterator<O>
 //          StrictWeakOrdering<P, ValueType<I>>
-std::tuple<I1, I2, O, I2> set_union_unique_intersecting_parts(I1 f1,
-                                                              I1 l1,
-                                                              I2 f2,
-                                                              I2 l2,
-                                                              O o,
-                                                              P p) {
+std::tuple<I1, I2, O> set_union_unique_intersecting_parts(I1 f1,
+                                                          I1 l1,
+                                                          I2 f2,
+                                                          I2 l2,
+                                                          O o,
+                                                          P p) {
   auto advance_range = [&](auto& f, auto l, const auto& v) {
-    auto m = lower_bound_biased(f, l, v, p);
+    auto m = std::lower_bound(f, l, v, p);
     o = std::copy(f, m, o);
     f = m;
   };
-
-  auto dropped_counter = f2;
 
   while (true) {
     if (f2 == l2)
@@ -100,33 +99,31 @@ std::tuple<I1, I2, O, I2> set_union_unique_intersecting_parts(I1 f1,
     if (f2 == l2)
       break;
 
-    if (!p(*f1, *f2)) {
+    if (!p(*f1, *f2))
       ++f2;
-      ++dropped_counter;
-    }
   }
 
-  return {f1, f2, o, dropped_counter};
+  return {f1, f2, o};
 }
 
 template <typename I1, typename I2, typename P>
 // requires ForwardIterator<I1> &&
 //          ForwardIterator<I2> &&
 //          StrictWeakOrdering<P, ValueType<I>>
-std::pair<I1, I2> set_union_unique_merge_into_tail(I1 buf,
+std::pair<I1, I1> set_union_unique_merge_into_tail(I1 buf,
                                                    I1 f1,
                                                    I1 l1,
                                                    I2 f2,
                                                    I2 l2,
                                                    P p) {
-  I2 dropped_counter;
-  std::tie(std::ignore, f2, buf, dropped_counter) =
+  std::move_iterator<I1> move_f1;
+  std::tie(move_f1, f2, buf) =
       set_union_unique_intersecting_parts(std::make_move_iterator(f1),  //
                                           std::make_move_iterator(l1),  //
                                           f2, l2,                       //
                                           buf, p);                      //
 
-  return {std::copy(f2, l2, buf), dropped_counter};
+  return {std::copy(f2, l2, buf), move_f1.base()};
 }
 
 template <typename I1, typename I2, typename O, typename P>
@@ -135,7 +132,7 @@ template <typename I1, typename I2, typename O, typename P>
 //          ForwardIterator<O>
 //          StrictWeakOrdering<P, ValueType<I>>
 O set_union_unique(I1 f1, I1 l1, I2 f2, I2 l2, O o, P p) {
-  std::tie(f1, f2, o, std::ignore) =
+  std::tie(f1, f2, o) =
       set_union_unique_intersecting_parts(f1, l1, f2, l2, o, p);
   o = std::copy(f1, l1, o);
   return std::copy(f2, l2, o);
@@ -304,17 +301,16 @@ void use_end_buffer(C& c, I f, I l, P p) {
   auto move_reverse_it =
       [](auto it) { return std::make_move_iterator(reverse_it(it)); };
 
-  auto dropped_counter =
-      helpers::set_union_unique_merge_into_tail(
-          reverse_it(buf),                               // buffer
-          reverse_it(orig_l), reverse_it(orig_f),        // original
-          move_reverse_it(l_in), move_reverse_it(f_in),  // new elements
-          helpers::strict_oposite(p))                    // greater
-          .second.base()                                 // move_it
-          .base();                                       // reverse_it
+  auto reverse_remainig_buf_range = helpers::set_union_unique_merge_into_tail(
+      reverse_it(buf),                               // buffer
+      reverse_it(orig_l), reverse_it(orig_f),        // original
+      move_reverse_it(l_in), move_reverse_it(f_in),  // new elements
+      helpers::strict_oposite(p));                   // greater
 
-  auto inserted_elements_count = new_len - (c.end() - dropped_counter);
-  c.erase(orig_l + inserted_elements_count, c.end());
+  auto remaining_buf = std::make_pair(reverse_remainig_buf_range.second.base(),
+                                      reverse_remainig_buf_range.first.base());
+  c.erase(remaining_buf.first, remaining_buf.second);
+  c.erase(c.end() - new_len, c.end());
 }
 
 }  // bulk_insert

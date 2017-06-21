@@ -9,7 +9,7 @@
 namespace {
 
 constexpr auto small_set_size = 1000u;
-constexpr auto small_insert_size = 20u;
+constexpr auto small_insert_size = 10u;
 
 const auto& test_case_small_int_set() {
   static const std::pair<std::vector<int>, std::vector<int>> cached_res = [] {
@@ -100,6 +100,7 @@ BENCHMARK(benchmark_copy_unique_full_inplace_merge);
 BENCHMARK(benchmark_copy_unique_inplace_merge_begin);
 BENCHMARK(benchmark_copy_unique_inplace_merge_upper_bound);
 BENCHMARK(benchmark_copy_unique_inplace_merge_no_buffer);
+BENCHMARK(benchmark_use_end_buffer);
 
 }  // namespace
 
