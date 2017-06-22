@@ -9,7 +9,7 @@
 namespace {
 
 constexpr auto small_set_size = 1000u;
-constexpr auto small_insert_size = 10u;
+constexpr auto small_insert_size = 1u;
 
 const auto& test_case_small_int_set() {
   static const std::pair<std::vector<int>, std::vector<int>> cached_res = [] {
@@ -38,12 +38,11 @@ void benchmark_unique_insert(benchmark::State& state, F insertion_algorithm) {
     auto c = input.first;
     auto f = input.second.begin();
     auto l = input.second.end();
-    c.reserve(c.size() + 4 * (l - f));
     insertion_algorithm(c, f, l);
   }
 }
 
-void benchmark_do_nothing(benchmark::State& state) {
+void benchmark_do_nothing_solution(benchmark::State& state) {
   benchmark_unique_insert(state, [](auto&&...) {});
 }
 
@@ -101,7 +100,23 @@ void benchmark_use_end_buffer_skipping_duplicates(benchmark::State& state) {
   });
 }
 
-BENCHMARK(benchmark_do_nothing);
+void boost_and_eastl_solution(benchmark::State& state) {
+  benchmark_one_at_a_time(state);
+}
+
+void folly_solution(benchmark::State& state) {
+  benchmark_naive_inplace_merge(state);
+}
+
+void chromium_solution(benchmark::State& state) {
+  benchmark_copy_unique_inplace_merge_begin(state);
+}
+
+void proposed_solution(benchmark::State& state) {
+  benchmark_use_end_buffer(state);
+}
+
+BENCHMARK(benchmark_do_nothing_solution);
 BENCHMARK(benchmark_one_at_a_time);
 BENCHMARK(benchmark_stable_sort_and_unique);
 BENCHMARK(benchmark_naive_inplace_merge);
@@ -111,6 +126,11 @@ BENCHMARK(benchmark_copy_unique_inplace_merge_upper_bound);
 BENCHMARK(benchmark_copy_unique_inplace_merge_no_buffer);
 BENCHMARK(benchmark_use_end_buffer);
 BENCHMARK(benchmark_use_end_buffer_skipping_duplicates);
+BENCHMARK(boost_and_eastl_solution);
+BENCHMARK(folly_solution);
+BENCHMARK(chromium_solution);
+BENCHMARK(proposed_solution);
+
 
 }  // namespace
 
