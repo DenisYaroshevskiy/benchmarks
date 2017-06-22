@@ -36,7 +36,10 @@ void benchmark_unique_insert(benchmark::State& state, F insertion_algorithm) {
   const auto& input = test_case_small_int_set();
   while(state.KeepRunning()) {
     auto c = input.first;
-    insertion_algorithm(c, input.second.begin(), input.second.end());
+    auto f = input.second.begin();
+    auto l = input.second.end();
+    c.reserve(c.size() + 4 * (l - f));
+    insertion_algorithm(c, f, l);
   }
 }
 
@@ -92,6 +95,12 @@ void benchmark_use_end_buffer(benchmark::State& state) {
   });
 }
 
+void benchmark_use_end_buffer_skipping_duplicates(benchmark::State& state) {
+  benchmark_unique_insert(state, [](auto& c, auto f, auto l) {
+    bulk_insert::use_end_buffer_skipping_duplicates(c, f, l, std::less<>{});
+  });
+}
+
 BENCHMARK(benchmark_do_nothing);
 BENCHMARK(benchmark_one_at_a_time);
 BENCHMARK(benchmark_stable_sort_and_unique);
@@ -101,6 +110,7 @@ BENCHMARK(benchmark_copy_unique_inplace_merge_begin);
 BENCHMARK(benchmark_copy_unique_inplace_merge_upper_bound);
 BENCHMARK(benchmark_copy_unique_inplace_merge_no_buffer);
 BENCHMARK(benchmark_use_end_buffer);
+BENCHMARK(benchmark_use_end_buffer_skipping_duplicates);
 
 }  // namespace
 

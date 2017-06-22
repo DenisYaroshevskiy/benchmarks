@@ -30,6 +30,8 @@ void test_unique_insert(F insertion_algorithm) {
   REQUIRE(c == C({1, 2, 3, 4, 6, 7}));
   insert({5, 1, 2});
   REQUIRE(c == C({1, 2, 3, 4, 5, 6, 7}));
+  insert({9, 0, 8});
+  REQUIRE(c == C({0, 1, 2, 3, 4, 5, 6, 7, 8, 9}));
 }
 
 TEST_CASE("one_at_a_time", "[multiple_insertions]") {
@@ -80,13 +82,10 @@ TEST_CASE("use_end_buffer", "[multiple_insertions]") {
   });
 }
 
-TEST_CASE("use_end_buffer_fails", "[multiple_insertions]") {
-  using C = std::vector<int>;
-  C c = {1, 2, 3, 6, 7};
-  C new_elems = {4, 6};
-  bulk_insert::use_end_buffer(c, new_elems.begin(), new_elems.end(),
-                              std::less<>{});
-  CHECK(c == C({1, 2, 3, 4, 6, 7}));
+TEST_CASE("use_end_buffer_skipping_duplicates", "[multiple_insertions]") {
+  test_unique_insert([](auto& c, auto f, auto l) {
+    bulk_insert::use_end_buffer_skipping_duplicates(c, f, l, std::less<>{});
+  });
 }
 
 TEST_CASE("lower_bound_biased", "[multiple_insertions, helpers]") {
