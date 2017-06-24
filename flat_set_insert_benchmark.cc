@@ -9,7 +9,8 @@
 namespace {
 
 constexpr auto small_set_size = 1000u;
-constexpr auto small_insert_size = 11u;
+constexpr auto small_insert_size = 30u;
+constexpr auto distribution_size = 1000000;
 
 const auto& test_case_small_int_set() {
   static const std::pair<std::vector<int>, std::vector<int>> cached_res = [] {
@@ -17,7 +18,7 @@ const auto& test_case_small_int_set() {
     std::vector<int> new_elements(small_insert_size);
     auto random_number = [] {
       static std::mt19937 g;
-      static std::uniform_int_distribution<> dis(1, 10000);
+      static std::uniform_int_distribution<> dis(1, distribution_size);
       return dis(g);
     };
 
