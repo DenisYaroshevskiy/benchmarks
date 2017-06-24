@@ -76,9 +76,9 @@ TEST_CASE("copy_unique_inplace_merge_no_buffer", "[multiple_insertions]") {
   });
 }
 
-TEST_CASE("use_end_buffer", "[multiple_insertions]") {
+TEST_CASE("use_end_buffer_2_times_new", "[multiple_insertions]") {
   test_unique_insert([](auto& c, auto f, auto l) {
-    bulk_insert::use_end_buffer(c, f, l, std::less<>{});
+    bulk_insert::use_end_buffer_2_times_new(c, f, l, std::less<>{});
   });
 }
 
@@ -91,6 +91,12 @@ TEST_CASE("use_end_buffer_skipping_duplicates", "[multiple_insertions]") {
 TEST_CASE("reallocate_and_merge", "[multiple_insertions]") {
   test_unique_insert([](auto& c, auto f, auto l) {
     bulk_insert::reallocate_and_merge(c, f, l, std::less<>{});
+  });
+}
+
+TEST_CASE("use_end_buffer_new_size", "[multiple_insertions]") {
+  test_unique_insert([](auto& c, auto f, auto l) {
+    bulk_insert::use_end_buffer_new_size(c, f, l, std::less<>{});
   });
 }
 

@@ -4,6 +4,8 @@
 #include <iterator>
 #include <vector>
 
+#include "benchmarks/copy.h"
+
 namespace helpers {
 
 template <typename P>
@@ -83,7 +85,7 @@ std::tuple<I1, I2, O> set_union_unique_intersecting_parts(I1 f1,
                                                           P p) {
   auto advance_range = [&](auto& f, auto l, const auto& v) {
     auto m = lower_bound_biased(f, l, v, p);
-    o = std::copy(f, m, o);
+    o = helpers::copy(f, m, o);
     f = m;
   };
 
@@ -125,7 +127,7 @@ std::pair<I1, I1> set_union_unique_merge_into_tail(I1 buf,
                                                 f2, l2,                       //
                                                 buf, p);                      //
 
-  return {std::copy(f2, l2, buf), move_f1.base()};
+  return {helpers::copy(f2, l2, buf), move_f1.base()};
 }
 
 template <typename I1, typename I2, typename O, typename P>
@@ -136,8 +138,47 @@ template <typename I1, typename I2, typename O, typename P>
 O set_union_unique(I1 f1, I1 l1, I2 f2, I2 l2, O o, P p) {
   std::tie(f1, f2, o) =
       set_union_unique_intersecting_parts<true>(f1, l1, f2, l2, o, p);
-  o = std::copy(f1, l1, o);
-  return std::copy(f2, l2, o);
+  o = helpers::copy(f1, l1, o);
+  return helpers::copy(f2, l2, o);
+}
+
+template <typename C, typename BufSize,  typename I, typename P>
+// requires Container<C> &&                             //
+//          ForwardIterator<I> &&                       //
+//          StrictWeakOrdering<P, ValueType<C>> &&      //
+//          std::is_same_v<ValueType<C>, ValueType<I>>  //
+void use_end_buffer_impl(C& c, BufSize buf_size, I f, I l, P p) {
+  auto new_len = std::distance(f, l);
+  auto original_size = c.size();
+  c.resize(original_size + buf_size + new_len);
+
+  auto orig_f = c.begin();
+  auto orig_l = c.begin() + original_size;
+  auto f_in = c.end() - new_len;
+  auto l_in = c.end();
+  auto buf = f_in;
+
+  helpers::copy(f, l, f_in);
+  std::sort(f_in, l_in, p);
+  l_in = std::unique(f_in, l_in, helpers::not_fn(p));
+
+  using reverse_it = typename C::reverse_iterator;
+  auto move_reverse_it =
+      [](auto it) { return std::make_move_iterator(reverse_it(it)); };
+
+  auto reverse_remainig_buf_range =
+      helpers::set_union_unique_merge_into_tail<true>(
+          reverse_it(buf),                               // buffer
+          reverse_it(orig_l), reverse_it(orig_f),        // original
+          move_reverse_it(l_in), move_reverse_it(f_in),  // new elements
+          helpers::strict_oposite(p));                   // greater
+
+  auto remaining_buf =
+      std::make_pair(reverse_remainig_buf_range.second.base() - c.begin(),
+                     reverse_remainig_buf_range.first.base() - c.begin());
+
+  c.erase(c.end() - new_len, c.end());
+  c.erase(c.begin() + remaining_buf.first, c.begin() + remaining_buf.second);
 }
 
 }  // helpers
@@ -284,36 +325,8 @@ template <typename C, typename I, typename P>
 //          ForwardIterator<I> &&                       //
 //          StrictWeakOrdering<P, ValueType<C>> &&      //
 //          std::is_same_v<ValueType<C>, ValueType<I>>  //
-void use_end_buffer(C& c, I f, I l, P p) {
-  auto new_len = std::distance(f, l);
-  auto original_size = c.size();
-  c.resize(c.size() + 2 * new_len);
-
-  auto orig_f = c.begin();
-  auto orig_l = c.begin() + original_size;
-  auto f_in = c.end() - new_len;
-  auto l_in = c.end();
-  auto buf = f_in;
-
-  std::copy(f, l, f_in);
-  std::sort(f_in, l_in, p);
-  l_in = std::unique(f_in, l_in, helpers::not_fn(p));
-
-  using reverse_it = typename C::reverse_iterator;
-  auto move_reverse_it =
-      [](auto it) { return std::make_move_iterator(reverse_it(it)); };
-
-  auto reverse_remainig_buf_range =
-      helpers::set_union_unique_merge_into_tail<true>(
-          reverse_it(buf),                               // buffer
-          reverse_it(orig_l), reverse_it(orig_f),        // original
-          move_reverse_it(l_in), move_reverse_it(f_in),  // new elements
-          helpers::strict_oposite(p));                   // greater
-
-  auto remaining_buf = std::make_pair(reverse_remainig_buf_range.second.base(),
-                                      reverse_remainig_buf_range.first.base());
-  c.erase(remaining_buf.first, remaining_buf.second);
-  c.erase(c.end() - new_len, c.end());
+void use_end_buffer_2_times_new(C& c, I f, I l, P p) {
+  helpers::use_end_buffer_impl(c, std::distance(f, l) * 2, f, l, p);
 }
 
 template <typename C, typename I, typename P>
@@ -375,5 +388,15 @@ void reallocate_and_merge(C& c, I f, I l, P p) {
                             std::back_inserter(new_c), p);
   c = std::move(new_c);
 }
+
+template <typename C, typename I, typename P>
+// requires Container<C> &&                             //
+//          ForwardIterator<I> &&                       //
+//          StrictWeakOrdering<P, ValueType<C>> &&      //
+//          std::is_same_v<ValueType<C>, ValueType<I>>  //
+void use_end_buffer_new_size(C& c, I f, I l, P p) {
+  helpers::use_end_buffer_impl(c, c.size() + std::distance(f, l), f, l, p);
+}
+
 
 }  // bulk_insert

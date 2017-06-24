@@ -9,7 +9,7 @@
 namespace {
 
 constexpr auto small_set_size = 1000u;
-constexpr auto small_insert_size = 10u;
+constexpr auto small_insert_size = 11u;
 
 const auto& test_case_small_int_set() {
   static const std::pair<std::vector<int>, std::vector<int>> cached_res = [] {
@@ -88,9 +88,9 @@ void benchmark_copy_unique_inplace_merge_no_buffer(benchmark::State& state) {
   });
 }
 
-void benchmark_use_end_buffer(benchmark::State& state) {
+void benchmark_use_end_buffer_2_times_new(benchmark::State& state) {
   benchmark_unique_insert(state, [](auto& c, auto f, auto l) {
-    bulk_insert::use_end_buffer(c, f, l, std::less<>{});
+    bulk_insert::use_end_buffer_2_times_new(c, f, l, std::less<>{});
   });
 }
 
@@ -103,6 +103,12 @@ void benchmark_use_end_buffer_skipping_duplicates(benchmark::State& state) {
 void benchmark_reallocate_and_merge(benchmark::State& state) {
   benchmark_unique_insert(state, [](auto& c, auto f, auto l) {
     bulk_insert::reallocate_and_merge(c, f, l, std::less<>{});
+  });
+}
+
+void benchmark_use_end_buffer_new_size(benchmark::State& state) {
+  benchmark_unique_insert(state, [](auto& c, auto f, auto l) {
+    bulk_insert::use_end_buffer_new_size(c, f, l, std::less<>{});
   });
 }
 
@@ -119,7 +125,7 @@ void chromium_solution(benchmark::State& state) {
 }
 
 void proposed_solution(benchmark::State& state) {
-  benchmark_use_end_buffer(state);
+  benchmark_use_end_buffer_2_times_new(state);
 }
 
 BENCHMARK(benchmark_do_nothing_solution);
@@ -130,14 +136,16 @@ BENCHMARK(benchmark_copy_unique_full_inplace_merge);
 BENCHMARK(benchmark_copy_unique_inplace_merge_begin);
 BENCHMARK(benchmark_copy_unique_inplace_merge_upper_bound);
 BENCHMARK(benchmark_copy_unique_inplace_merge_no_buffer);
-BENCHMARK(benchmark_use_end_buffer);
+BENCHMARK(benchmark_use_end_buffer_2_times_new);
 BENCHMARK(benchmark_use_end_buffer_skipping_duplicates);
 BENCHMARK(benchmark_reallocate_and_merge);
+BENCHMARK(benchmark_use_end_buffer_new_size);
 
 BENCHMARK(boost_and_eastl_solution);
 BENCHMARK(folly_solution);
 BENCHMARK(chromium_solution);
 BENCHMARK(proposed_solution);
+
 
 }  // namespace
 
