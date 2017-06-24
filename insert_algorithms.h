@@ -151,7 +151,7 @@ template <typename C, typename I, typename P>
 //          std::is_same_v<ValueType<C>, ValueType<I>>  //
 void one_at_a_time(C& c, I f, I l, P p) {
   for (; f != l; ++f) {
-    auto where = helpers::lower_bound_biased(c.begin(), c.end(), *f, p);
+    auto where = std::lower_bound(c.begin(), c.end(), *f, p);
     if (where != c.end() && !p(*f, *where))
       continue;
     c.insert(where, *f);
@@ -287,9 +287,7 @@ template <typename C, typename I, typename P>
 void use_end_buffer(C& c, I f, I l, P p) {
   auto new_len = std::distance(f, l);
   auto original_size = c.size();
-  c.reserve(c.size() + 2 * new_len);
-  c.resize(c.size() + new_len);
-  c.insert(c.end(), f, l);
+  c.resize(c.size() + 2 * new_len);
 
   auto orig_f = c.begin();
   auto orig_l = c.begin() + original_size;
@@ -297,6 +295,7 @@ void use_end_buffer(C& c, I f, I l, P p) {
   auto l_in = c.end();
   auto buf = f_in;
 
+  std::copy(f, l, f_in);
   std::sort(f_in, l_in, p);
   l_in = std::unique(f_in, l_in, helpers::not_fn(p));
 
