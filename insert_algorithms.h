@@ -73,7 +73,7 @@ template <bool skip_duplicates,
           typename P>
 // requires ForwardIterator<I1> &&
 //          ForwardIterator<I2> &&
-//          ForwardIterator<O>
+//          OutputIterator<O>
 //          StrictWeakOrdering<P, ValueType<I>>
 std::tuple<I1, I2, O> set_union_unique_intersecting_parts(I1 f1,
                                                           I1 l1,
@@ -131,7 +131,7 @@ std::pair<I1, I1> set_union_unique_merge_into_tail(I1 buf,
 template <typename I1, typename I2, typename O, typename P>
 // requires ForwardIterator<I1> &&
 //          ForwardIterator<I2> &&
-//          ForwardIterator<O>
+//          OutputIterator<O>
 //          StrictWeakOrdering<P, ValueType<I>>
 O set_union_unique(I1 f1, I1 l1, I2 f2, I2 l2, O o, P p) {
   std::tie(f1, f2, o) =
@@ -287,7 +287,9 @@ template <typename C, typename I, typename P>
 void use_end_buffer(C& c, I f, I l, P p) {
   auto new_len = std::distance(f, l);
   auto original_size = c.size();
-  c.resize(c.size() + new_len * 2);
+  c.reserve(c.size() + 2 * new_len);
+  c.resize(c.size() + new_len);
+  c.insert(c.end(), f, l);
 
   auto orig_f = c.begin();
   auto orig_l = c.begin() + original_size;
@@ -295,7 +297,6 @@ void use_end_buffer(C& c, I f, I l, P p) {
   auto l_in = c.end();
   auto buf = f_in;
 
-  std::copy(f, l, f_in);
   std::sort(f_in, l_in, p);
   l_in = std::unique(f_in, l_in, helpers::not_fn(p));
 
@@ -348,6 +349,32 @@ void use_end_buffer_skipping_duplicates(C& c, I f, I l, P p) {
       move_reverse_it(l_in), move_reverse_it(f_in),  // new elements
       helpers::strict_oposite(p));                   // greater
   c.erase(new_end, c.end());
+}
+
+template <typename C, typename I, typename P>
+// requires Container<C> &&                             //
+//          ForwardIterator<I> &&                       //
+//          StrictWeakOrdering<P, ValueType<C>> &&      //
+//          std::is_same_v<ValueType<C>, ValueType<I>>  //
+void reallocate_and_merge(C& c, I f, I l, P p) {
+  auto new_len = std::distance(f, l);
+  auto original_size = c.size();
+  c.insert(c.end(), f, l);
+  auto f1 = c.data() + original_size;
+  auto l1 = c.data() + c.size();
+  std::sort(f1, l1, p);
+  l1 = std::unique(f1, l1, helpers::not_fn(p));
+
+  constexpr int c_grows_factor = 2;
+  C new_c;
+  new_c.reserve((original_size + new_len) * c_grows_factor);
+
+  helpers::set_union_unique(std::make_move_iterator(c.begin()),
+                            std::make_move_iterator(c.begin() + original_size),
+                            std::make_move_iterator(f1),
+                            std::make_move_iterator(l1),
+                            std::back_inserter(new_c), p);
+  c = std::move(new_c);
 }
 
 }  // bulk_insert

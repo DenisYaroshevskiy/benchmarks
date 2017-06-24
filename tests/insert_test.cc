@@ -88,6 +88,12 @@ TEST_CASE("use_end_buffer_skipping_duplicates", "[multiple_insertions]") {
   });
 }
 
+TEST_CASE("reallocate_and_merge", "[multiple_insertions]") {
+  test_unique_insert([](auto& c, auto f, auto l) {
+    bulk_insert::reallocate_and_merge(c, f, l, std::less<>{});
+  });
+}
+
 TEST_CASE("lower_bound_biased", "[multiple_insertions, helpers]") {
   auto test = [](const std::vector<int>& c, const auto& v) {
     auto biased =

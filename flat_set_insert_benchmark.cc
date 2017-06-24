@@ -9,7 +9,7 @@
 namespace {
 
 constexpr auto small_set_size = 1000u;
-constexpr auto small_insert_size = 1u;
+constexpr auto small_insert_size = 10u;
 
 const auto& test_case_small_int_set() {
   static const std::pair<std::vector<int>, std::vector<int>> cached_res = [] {
@@ -100,6 +100,12 @@ void benchmark_use_end_buffer_skipping_duplicates(benchmark::State& state) {
   });
 }
 
+void benchmark_reallocate_and_merge(benchmark::State& state) {
+  benchmark_unique_insert(state, [](auto& c, auto f, auto l) {
+    bulk_insert::reallocate_and_merge(c, f, l, std::less<>{});
+  });
+}
+
 void boost_and_eastl_solution(benchmark::State& state) {
   benchmark_one_at_a_time(state);
 }
@@ -126,11 +132,12 @@ BENCHMARK(benchmark_copy_unique_inplace_merge_upper_bound);
 BENCHMARK(benchmark_copy_unique_inplace_merge_no_buffer);
 BENCHMARK(benchmark_use_end_buffer);
 BENCHMARK(benchmark_use_end_buffer_skipping_duplicates);
+BENCHMARK(benchmark_reallocate_and_merge);
+
 BENCHMARK(boost_and_eastl_solution);
 BENCHMARK(folly_solution);
 BENCHMARK(chromium_solution);
 BENCHMARK(proposed_solution);
-
 
 }  // namespace
 
