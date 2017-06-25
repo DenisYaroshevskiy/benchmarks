@@ -16,13 +16,21 @@ class Title:
     self.set_size = set_size
     self.distribution_size = distribution_size
 
+class Method:
+  def __init__(self, name, measurements):
+    self.name = name
+    self.main = False
+    self.measurements = measurements
+
+    if self.name == 'proposed':
+      self.name += ' solution'
+      self.main = True
+    self.name = self.name.replace('_', ' ')
+
+
 def parseMeasurement(json_dict):
   parsed_name = re.match(r'(.*?)(_solution)?/(.*)',json_dict['name'])
   name = parsed_name.group(1)
-  name = name.replace('_', ' ')
-  if name == 'proposed':
-    name += ' solution'
-  print name
 
   input_size = int(parsed_name.group(3))
   time = json_dict['real_time']
@@ -42,23 +50,34 @@ def parseJson(loaded_benchmarks_json, baseline_name):
   if baseline_name not in measurements:
     raise "No baseline benchmark found"
 
+  methods = []
   for name, ms in measurements.iteritems():
     if name == baseline_name:
       continue
     for m, baseline in zip(ms, measurements[baseline_name]):
       assert(m.input_size == baseline.input_size)
       m.time - baseline.time
+    methods.append(Method(name, ms))
 
   del measurements[baseline_name]
 
-  return (title, measurements)
+  return (title, methods)
 
-def drawPlot(title, measurements):
+def drawPlot(title, methods):
   traces = []
-  for method, results in measurements.iteritems():
-    input_sizes = map(lambda m: m.input_size, results)
-    times = map(lambda m: m.time, results)
-    trace = Scatter(x = input_sizes, y = times, mode = 'lines', name = method)
+  for method in methods:
+    input_sizes = map(lambda m : m.input_size, method.measurements)
+    times = map(lambda m: m.time, method.measurements)
+    line = dict( width = 1)
+    if method.main:
+      line['width'] = 2
+
+    trace = Scatter(x = input_sizes,
+                    y = times,
+                    mode = 'lines',
+                    name = method.name,
+                    line = line
+                    )
     traces.append(trace)
 
   data = plotly.graph_objs.Data(traces)
@@ -73,7 +92,8 @@ def drawPlot(title, measurements):
 
   return plotly.plotly.plot(
     dict(data=data, layout=layout),
-    filename = 'flat_set_insert_1000_unlikely_duplicates',
+    filename = 'flat_set_insert_'+ str(title.set_size) + '_'\
+                                 + str(title.distribution_size),
     fileopt = 'overwrite',
     auto_open = False,
   )
@@ -92,7 +112,7 @@ if __name__ == "__main__":
   baseline_name = options.baseline_name
   loaded_benchmarks = json.load(open(options.benchmarks_result_json))
 
-  title, measurements = parseJson(loaded_benchmarks, baseline_name)
-  print drawPlot(title, measurements)
+  title, methods = parseJson(loaded_benchmarks, baseline_name)
+  print drawPlot(title, methods)
 
 
