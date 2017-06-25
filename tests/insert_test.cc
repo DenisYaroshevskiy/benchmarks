@@ -46,9 +46,9 @@ TEST_CASE("stable_sort_and_unique", "[multiple_insertions]") {
   });
 }
 
-TEST_CASE("naive_inplace_merge", "[multiple_insertions]") {
+TEST_CASE("full_inplace_merge", "[multiple_insertions]") {
   test_unique_insert([](auto& c, auto f, auto l) {
-    bulk_insert::naive_inplace_merge(c, f, l, std::less<>{});
+    bulk_insert::full_inplace_merge(c, f, l, std::less<>{});
   });
 }
 
@@ -58,9 +58,9 @@ TEST_CASE("copy_unique_full_inplace_merge", "[multiple_insertions]") {
   });
 }
 
-TEST_CASE("copy_unique_inplace_merge_begin", "[multiple_insertions]") {
+TEST_CASE("copy_unique_inplace_merge_cache_begin", "[multiple_insertions]") {
   test_unique_insert([](auto& c, auto f, auto l) {
-    bulk_insert::copy_unique_inplace_merge_begin(c, f, l, std::less<>{});
+    bulk_insert::copy_unique_inplace_merge_cache_begin(c, f, l, std::less<>{});
   });
 }
 
@@ -79,12 +79,6 @@ TEST_CASE("copy_unique_inplace_merge_no_buffer", "[multiple_insertions]") {
 TEST_CASE("use_end_buffer_2_times_new", "[multiple_insertions]") {
   test_unique_insert([](auto& c, auto f, auto l) {
     bulk_insert::use_end_buffer_2_times_new(c, f, l, std::less<>{});
-  });
-}
-
-TEST_CASE("use_end_buffer_skipping_duplicates", "[multiple_insertions]") {
-  test_unique_insert([](auto& c, auto f, auto l) {
-    bulk_insert::use_end_buffer_skipping_duplicates(c, f, l, std::less<>{});
   });
 }
 
@@ -124,8 +118,8 @@ TEST_CASE("set_union_unique", "[multiple_insertions, helpers]") {
                  const std::vector<int>& expected) {
     std::vector<int> actual(lhs.size() + rhs.size());
     auto l =
-        helpers::set_union_unique(lhs.begin(), lhs.end(), rhs.begin(),
-                                  rhs.end(), actual.begin(), std::less<>{});
+        helpers::set_union_adaptive(lhs.begin(), lhs.end(), rhs.begin(),
+                                    rhs.end(), actual.begin(), std::less<>{});
     actual.erase(l, actual.end());
     CHECK(expected == actual);
   };

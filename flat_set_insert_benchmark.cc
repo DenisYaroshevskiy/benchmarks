@@ -92,9 +92,9 @@ void benchmark_stable_sort_and_unique(benchmark::State& state) {
   });
 }
 
-void benchmark_naive_inplace_merge(benchmark::State& state) {
+void benchmark_full_inplace_merge(benchmark::State& state) {
   benchmark_unique_insert(state, [](auto& c, auto f, auto l) {
-    bulk_insert::naive_inplace_merge(c, f, l, std::less<>{});
+    bulk_insert::full_inplace_merge(c, f, l, std::less<>{});
   });
 }
 
@@ -104,9 +104,9 @@ void benchmark_copy_unique_full_inplace_merge(benchmark::State& state) {
   });
 }
 
-void benchmark_copy_unique_inplace_merge_begin(benchmark::State& state) {
+void benchmark_copy_unique_inplace_merge_cache_begin(benchmark::State& state) {
   benchmark_unique_insert(state, [](auto& c, auto f, auto l) {
-    bulk_insert::copy_unique_inplace_merge_begin(c, f, l, std::less<>{});
+    bulk_insert::copy_unique_inplace_merge_cache_begin(c, f, l, std::less<>{});
   });
 }
 
@@ -128,12 +128,6 @@ void benchmark_use_end_buffer_2_times_new(benchmark::State& state) {
   });
 }
 
-void benchmark_use_end_buffer_skipping_duplicates(benchmark::State& state) {
-  benchmark_unique_insert(state, [](auto& c, auto f, auto l) {
-    bulk_insert::use_end_buffer_skipping_duplicates(c, f, l, std::less<>{});
-  });
-}
-
 void benchmark_reallocate_and_merge(benchmark::State& state) {
   benchmark_unique_insert(state, [](auto& c, auto f, auto l) {
     bulk_insert::reallocate_and_merge(c, f, l, std::less<>{});
@@ -151,11 +145,11 @@ void boost_and_eastl_solution(benchmark::State& state) {
 }
 
 void folly_solution(benchmark::State& state) {
-  benchmark_naive_inplace_merge(state);
+  benchmark_full_inplace_merge(state);
 }
 
 void chromium_solution(benchmark::State& state) {
-  benchmark_copy_unique_inplace_merge_begin(state);
+  benchmark_copy_unique_inplace_merge_cache_begin(state);
 }
 
 void proposed_solution(benchmark::State& state) {
@@ -170,15 +164,15 @@ void set_input_sizes(benchmark::internal::Benchmark* bench) {
 BENCHMARK(baseline)->Apply(set_input_sizes);
 BENCHMARK(benchmark_one_at_a_time)->Apply(set_input_sizes);
 BENCHMARK(benchmark_stable_sort_and_unique)->Apply(set_input_sizes);
-BENCHMARK(benchmark_naive_inplace_merge)->Apply(set_input_sizes);
+BENCHMARK(benchmark_full_inplace_merge)->Apply(set_input_sizes);
 BENCHMARK(benchmark_copy_unique_full_inplace_merge)->Apply(set_input_sizes);
-BENCHMARK(benchmark_copy_unique_inplace_merge_begin)->Apply(set_input_sizes);
+BENCHMARK(benchmark_copy_unique_inplace_merge_cache_begin)
+    ->Apply(set_input_sizes);
 BENCHMARK(benchmark_copy_unique_inplace_merge_upper_bound)
     ->Apply(set_input_sizes);
 BENCHMARK(benchmark_copy_unique_inplace_merge_no_buffer)
     ->Apply(set_input_sizes);
 BENCHMARK(benchmark_use_end_buffer_2_times_new)->Apply(set_input_sizes);
-BENCHMARK(benchmark_use_end_buffer_skipping_duplicates)->Apply(set_input_sizes);
 BENCHMARK(benchmark_reallocate_and_merge)->Apply(set_input_sizes);
 BENCHMARK(benchmark_use_end_buffer_new_size)->Apply(set_input_sizes);
 
