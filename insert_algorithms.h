@@ -68,7 +68,23 @@ I lower_bound_biased(I f, I l, const V& v, P p) {
   return partition_point_biased(f, l, less_than(p, v));
 }
 
-template <typename I1, typename I2, typename O, typename P>
+struct copy_traits
+{
+  template <typename I, typename O>
+  static O copy (I f, I l, O o) {
+    return helpers::copy(f, l, o);
+  }
+};
+
+struct stric_copy_traits
+{
+  template <typename I, typename O>
+  static O copy (I f, I l, O o) {
+    return helpers::strict_copy(f, l, o);
+  }
+};
+
+template <typename Traits, typename I1, typename I2, typename O, typename P>
 // requires ForwardIterator<I1> &&
 //          ForwardIterator<I2> &&
 //          OutputIterator<O>
@@ -81,7 +97,7 @@ std::tuple<I1, I2, O> set_union_adaptive_intersecting_parts(I1 f1,
                                                             P p) {
   auto advance_range = [&](auto& f, auto l, const auto& v) {
     auto m = lower_bound_biased(f, l, v, p);
-    o = helpers::copy(f, m, o);
+    o = Traits::copy(f, m, o);
     f = m;
   };
 
@@ -118,10 +134,11 @@ std::pair<I1, I1> set_union_adaptive_into_tail(I1 buf,
                                                P p) {
   std::move_iterator<I1> move_f1;
   std::tie(move_f1, f2, buf) =
-      set_union_adaptive_intersecting_parts(std::make_move_iterator(f1),  //
-                                            std::make_move_iterator(l1),  //
-                                            f2, l2,                       //
-                                            buf, p);                      //
+      set_union_adaptive_intersecting_parts<copy_traits>(
+          std::make_move_iterator(f1),  //
+          std::make_move_iterator(l1),  //
+          f2, l2,                       //
+          buf, p);                      //
 
   return {helpers::copy(f2, l2, buf), move_f1.base()};
 }
@@ -133,9 +150,10 @@ template <typename I1, typename I2, typename O, typename P>
 //          StrictWeakOrdering<P, ValueType<I>>
 O set_union_adaptive(I1 f1, I1 l1, I2 f2, I2 l2, O o, P p) {
   std::tie(f1, f2, o) =
-      set_union_adaptive_intersecting_parts(f1, l1, f2, l2, o, p);
-  o = helpers::copy(f1, l1, o);
-  return helpers::copy(f2, l2, o);
+      set_union_adaptive_intersecting_parts<stric_copy_traits>(f1, l1, f2, l2,
+                                                               o, p);
+  o = helpers::strict_copy(f1, l1, o);
+  return helpers::strict_copy(f2, l2, o);
 }
 
 template <typename C, typename BufSize, typename I, typename P>
@@ -154,7 +172,7 @@ void use_end_buffer_impl(C& c, BufSize buf_size, I f, I l, P p) {
   auto l_in = c.end();
   auto buf = f_in;
 
-  helpers::copy(f, l, f_in);
+  helpers::strict_copy(f, l, f_in);
   std::sort(f_in, l_in, p);
   l_in = std::unique(f_in, l_in, helpers::not_fn(p));
 
@@ -329,33 +347,30 @@ template <typename C, typename I, typename P>
 //          ForwardIterator<I> &&                       //
 //          StrictWeakOrdering<P, ValueType<C>> &&      //
 //          std::is_same_v<ValueType<C>, ValueType<I>>  //
-void use_end_buffer_2_times_new(C& c, I f, I l, P p) {
-  helpers::use_end_buffer_impl(c, 2 * std::distance(f, l), f, l, p);
-}
-
-template <typename C, typename I, typename P>
-// requires Container<C> &&                             //
-//          ForwardIterator<I> &&                       //
-//          StrictWeakOrdering<P, ValueType<C>> &&      //
-//          std::is_same_v<ValueType<C>, ValueType<I>>  //
 void reallocate_and_merge(C& c, I f, I l, P p) {
-  auto new_len = std::distance(f, l);
-  auto original_size = c.size();
-  c.insert(c.end(), f, l);
-  auto f1 = c.data() + original_size;
-  auto l1 = c.data() + c.size();
-  std::sort(f1, l1, p);
-  l1 = std::unique(f1, l1, helpers::not_fn(p));
-
-  constexpr int c_grows_factor = 2;
   C new_c;
-  new_c.reserve((original_size + new_len) * c_grows_factor);
+  auto new_len = std::distance(f, l);
+  new_c.resize(c.size() + new_len);
+  auto orig_l =
+      helpers::strict_copy(std::make_move_iterator(c.begin()),
+                           std::make_move_iterator(c.end()), new_c.begin());
+  c.resize(std::distance(f, l));
+  helpers::strict_copy(f, l, c.begin());
+  std::sort(c.begin(), c.end(), p);
+  auto c_l = std::unique(c.begin(), c.end(), helpers::not_fn(p));
 
-  helpers::set_union_adaptive(
-      std::make_move_iterator(c.begin()),
-      std::make_move_iterator(c.begin() + original_size),
-      std::make_move_iterator(f1), std::make_move_iterator(l1),
-      std::back_inserter(new_c), p);
+  using reverse_it = typename C::reverse_iterator;
+  auto move_reverse_it =
+      [](auto it) { return std::make_move_iterator(reverse_it(it)); };
+
+  auto reverse_remainig_buf_range = helpers::set_union_adaptive_into_tail(
+      reverse_it(new_c.end()),                               // buffer
+      reverse_it(orig_l), reverse_it(new_c.begin()),         // original
+      move_reverse_it(c_l), move_reverse_it(c.begin()),      // new elements
+      helpers::strict_oposite(p));                           // greater
+
+  new_c.erase(reverse_remainig_buf_range.second.base(),
+              reverse_remainig_buf_range.first.base());
   c = std::move(new_c);
 }
 

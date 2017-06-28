@@ -128,12 +128,6 @@ void benchmark_use_end_buffer_new(benchmark::State& state) {
   });
 }
 
-void benchmark_use_end_buffer_2_times_new(benchmark::State& state) {
-  benchmark_unique_insert(state, [](auto& c, auto f, auto l) {
-    bulk_insert::use_end_buffer_2_times_new(c, f, l, std::less<>{});
-  });
-}
-
 void benchmark_reallocate_and_merge(benchmark::State& state) {
   benchmark_unique_insert(state, [](auto& c, auto f, auto l) {
     bulk_insert::reallocate_and_merge(c, f, l, std::less<>{});
@@ -179,7 +173,6 @@ BENCHMARK(benchmark_copy_unique_inplace_merge_upper_bound)
 BENCHMARK(benchmark_copy_unique_inplace_merge_no_buffer)
     ->Apply(set_input_sizes);
 BENCHMARK(benchmark_use_end_buffer_new)->Apply(set_input_sizes);
-BENCHMARK(benchmark_use_end_buffer_2_times_new)->Apply(set_input_sizes);
 BENCHMARK(benchmark_reallocate_and_merge)->Apply(set_input_sizes);
 BENCHMARK(benchmark_use_end_buffer_new_size)->Apply(set_input_sizes);
 

@@ -138,6 +138,9 @@ O copy_backward(I f, I l, O o) {
 
 template <typename I, typename O>
 O strict_copy(I f, I l, O o) {
+#ifdef NDEBUG
+  static_assert(std::is_same<std::vector<int>::iterator, int*>, "");
+#endif
   return copy_iterator_unwrapper<strict_copy_impl>{}.run_copy(f, l, o);
 }
 
