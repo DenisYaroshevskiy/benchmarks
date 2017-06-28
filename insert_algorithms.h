@@ -145,11 +145,11 @@ template <typename C, typename BufSize, typename I, typename P>
 //          std::is_same_v<ValueType<C>, ValueType<I>>  //
 void use_end_buffer_impl(C& c, BufSize buf_size, I f, I l, P p) {
   auto new_len = std::distance(f, l);
-  auto original_size = c.size();
-  c.resize(original_size + buf_size + new_len);
+  auto orig_len = c.size();
+  c.resize(orig_len + buf_size + new_len);
 
   auto orig_f = c.begin();
-  auto orig_l = c.begin() + original_size;
+  auto orig_l = c.begin() + orig_len;
   auto f_in = c.end() - new_len;
   auto l_in = c.end();
   auto buf = f_in;
@@ -320,8 +320,17 @@ template <typename C, typename I, typename P>
 //          ForwardIterator<I> &&                       //
 //          StrictWeakOrdering<P, ValueType<C>> &&      //
 //          std::is_same_v<ValueType<C>, ValueType<I>>  //
+void use_end_buffer_new(C& c, I f, I l, P p) {
+  helpers::use_end_buffer_impl(c, std::distance(f, l), f, l, p);
+}
+
+template <typename C, typename I, typename P>
+// requires Container<C> &&                             //
+//          ForwardIterator<I> &&                       //
+//          StrictWeakOrdering<P, ValueType<C>> &&      //
+//          std::is_same_v<ValueType<C>, ValueType<I>>  //
 void use_end_buffer_2_times_new(C& c, I f, I l, P p) {
-  helpers::use_end_buffer_impl(c, std::distance(f, l) * 2, f, l, p);
+  helpers::use_end_buffer_impl(c, 2 * std::distance(f, l), f, l, p);
 }
 
 template <typename C, typename I, typename P>

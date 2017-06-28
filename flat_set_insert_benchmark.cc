@@ -11,11 +11,11 @@
 
 namespace {
 
-constexpr int c_set_size = 1000;
+constexpr int c_set_size = 100;
 constexpr int c_distribution_size = 1000000;
 
-constexpr int c_min_input_size = 1;
-constexpr int c_max_input_size = 1000;
+constexpr int c_min_input_size = 5;
+constexpr int c_max_input_size = 10;
 constexpr int c_input_step = 1;
 
 using int_vec = std::vector<int>;
@@ -122,6 +122,12 @@ void benchmark_copy_unique_inplace_merge_no_buffer(benchmark::State& state) {
   });
 }
 
+void benchmark_use_end_buffer_new(benchmark::State& state) {
+  benchmark_unique_insert(state, [](auto& c, auto f, auto l) {
+    bulk_insert::use_end_buffer_new(c, f, l, std::less<>{});
+  });
+}
+
 void benchmark_use_end_buffer_2_times_new(benchmark::State& state) {
   benchmark_unique_insert(state, [](auto& c, auto f, auto l) {
     bulk_insert::use_end_buffer_2_times_new(c, f, l, std::less<>{});
@@ -153,7 +159,7 @@ void chromium_solution(benchmark::State& state) {
 }
 
 void proposed_solution(benchmark::State& state) {
-  benchmark_use_end_buffer_2_times_new(state);
+  benchmark_use_end_buffer_new(state);
 }
 
 void set_input_sizes(benchmark::internal::Benchmark* bench) {
@@ -172,6 +178,7 @@ BENCHMARK(benchmark_copy_unique_inplace_merge_upper_bound)
     ->Apply(set_input_sizes);
 BENCHMARK(benchmark_copy_unique_inplace_merge_no_buffer)
     ->Apply(set_input_sizes);
+BENCHMARK(benchmark_use_end_buffer_new)->Apply(set_input_sizes);
 BENCHMARK(benchmark_use_end_buffer_2_times_new)->Apply(set_input_sizes);
 BENCHMARK(benchmark_reallocate_and_merge)->Apply(set_input_sizes);
 BENCHMARK(benchmark_use_end_buffer_new_size)->Apply(set_input_sizes);
