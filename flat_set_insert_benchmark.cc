@@ -122,9 +122,9 @@ void benchmark_copy_unique_inplace_merge_no_buffer(benchmark::State& state) {
   });
 }
 
-void benchmark_use_end_buffer_new(benchmark::State& state) {
+void benchmark_use_end_buffer_precise(benchmark::State& state) {
   benchmark_unique_insert(state, [](auto& c, auto f, auto l) {
-    bulk_insert::use_end_buffer_new(c, f, l, std::less<>{});
+    bulk_insert::use_end_buffer_precise(c, f, l, std::less<>{});
   });
 }
 
@@ -153,7 +153,7 @@ void chromium_solution(benchmark::State& state) {
 }
 
 void proposed_solution(benchmark::State& state) {
-  benchmark_use_end_buffer_new(state);
+  benchmark_use_end_buffer_precise(state);
 }
 
 void set_input_sizes(benchmark::internal::Benchmark* bench) {
@@ -172,7 +172,7 @@ BENCHMARK(benchmark_copy_unique_inplace_merge_upper_bound)
     ->Apply(set_input_sizes);
 BENCHMARK(benchmark_copy_unique_inplace_merge_no_buffer)
     ->Apply(set_input_sizes);
-BENCHMARK(benchmark_use_end_buffer_new)->Apply(set_input_sizes);
+BENCHMARK(benchmark_use_end_buffer_precise)->Apply(set_input_sizes);
 BENCHMARK(benchmark_reallocate_and_merge)->Apply(set_input_sizes);
 BENCHMARK(benchmark_use_end_buffer_new_size)->Apply(set_input_sizes);
 

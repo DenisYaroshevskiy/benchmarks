@@ -90,9 +90,9 @@ TEST_CASE("use_end_buffer_new_size", "[multiple_insertions]") {
   });
 }
 
-TEST_CASE("use_end_buffer_new", "[multiple_insertions]") {
+TEST_CASE("use_end_buffer_precise", "[multiple_insertions]") {
   test_unique_insert([](auto& c, auto f, auto l) {
-    bulk_insert::use_end_buffer_new(c, f, l, std::less<>{});
+    bulk_insert::use_end_buffer_precise(c, f, l, std::less<>{});
   });
 }
 

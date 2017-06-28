@@ -122,7 +122,7 @@ std::tuple<I1, I2, O> set_union_adaptive_intersecting_parts(I1 f1,
   return {f1, f2, o};
 }
 
-template <typename I1, typename I2, typename P>
+template <typename Traits, typename I1, typename I2, typename P>
 // requires ForwardIterator<I1> &&
 //          ForwardIterator<I2> &&
 //          StrictWeakOrdering<P, ValueType<I>>
@@ -134,7 +134,7 @@ std::pair<I1, I1> set_union_adaptive_into_tail(I1 buf,
                                                P p) {
   std::move_iterator<I1> move_f1;
   std::tie(move_f1, f2, buf) =
-      set_union_adaptive_intersecting_parts<copy_traits>(
+      set_union_adaptive_intersecting_parts<Traits>(
           std::make_move_iterator(f1),  //
           std::make_move_iterator(l1),  //
           f2, l2,                       //
@@ -156,7 +156,7 @@ O set_union_adaptive(I1 f1, I1 l1, I2 f2, I2 l2, O o, P p) {
   return helpers::strict_copy(f2, l2, o);
 }
 
-template <typename C, typename BufSize, typename I, typename P>
+template <typename Traits, typename C, typename BufSize, typename I, typename P>
 // requires Container<C> &&                             //
 //          ForwardIterator<I> &&                       //
 //          StrictWeakOrdering<P, ValueType<C>> &&      //
@@ -180,11 +180,12 @@ void use_end_buffer_impl(C& c, BufSize buf_size, I f, I l, P p) {
   auto move_reverse_it =
       [](auto it) { return std::make_move_iterator(reverse_it(it)); };
 
-  auto reverse_remainig_buf_range = helpers::set_union_adaptive_into_tail(
-      reverse_it(buf),                               // buffer
-      reverse_it(orig_l), reverse_it(orig_f),        // original
-      move_reverse_it(l_in), move_reverse_it(f_in),  // new elements
-      helpers::strict_oposite(p));                   // greater
+  auto reverse_remainig_buf_range =
+      helpers::set_union_adaptive_into_tail<Traits>(
+          reverse_it(buf),                               // buffer
+          reverse_it(orig_l), reverse_it(orig_f),        // original
+          move_reverse_it(l_in), move_reverse_it(f_in),  // new elements
+          helpers::strict_oposite(p));                   // greater
 
   auto remaining_buf =
       std::make_pair(reverse_remainig_buf_range.second.base() - c.begin(),
@@ -338,8 +339,9 @@ template <typename C, typename I, typename P>
 //          ForwardIterator<I> &&                       //
 //          StrictWeakOrdering<P, ValueType<C>> &&      //
 //          std::is_same_v<ValueType<C>, ValueType<I>>  //
-void use_end_buffer_new(C& c, I f, I l, P p) {
-  helpers::use_end_buffer_impl(c, std::distance(f, l), f, l, p);
+void use_end_buffer_precise(C& c, I f, I l, P p) {
+  helpers::use_end_buffer_impl<helpers::copy_traits>(c, std::distance(f, l), f,
+                                                     l, p);
 }
 
 template <typename C, typename I, typename P>
@@ -363,11 +365,12 @@ void reallocate_and_merge(C& c, I f, I l, P p) {
   auto move_reverse_it =
       [](auto it) { return std::make_move_iterator(reverse_it(it)); };
 
-  auto reverse_remainig_buf_range = helpers::set_union_adaptive_into_tail(
-      reverse_it(new_c.end()),                               // buffer
-      reverse_it(orig_l), reverse_it(new_c.begin()),         // original
-      move_reverse_it(c_l), move_reverse_it(c.begin()),      // new elements
-      helpers::strict_oposite(p));                           // greater
+  auto reverse_remainig_buf_range =
+      helpers::set_union_adaptive_into_tail<helpers::copy_traits>(
+          reverse_it(new_c.end()),                           // buffer
+          reverse_it(orig_l), reverse_it(new_c.begin()),     // original
+          move_reverse_it(c_l), move_reverse_it(c.begin()),  // new elements
+          helpers::strict_oposite(p));                       // greater
 
   new_c.erase(reverse_remainig_buf_range.second.base(),
               reverse_remainig_buf_range.first.base());
@@ -380,7 +383,8 @@ template <typename C, typename I, typename P>
 //          StrictWeakOrdering<P, ValueType<C>> &&      //
 //          std::is_same_v<ValueType<C>, ValueType<I>>  //
 void use_end_buffer_new_size(C& c, I f, I l, P p) {
-  helpers::use_end_buffer_impl(c, c.size() + std::distance(f, l), f, l, p);
+  helpers::use_end_buffer_impl<helpers::stric_copy_traits>(
+      c, c.size() + std::distance(f, l), f, l, p);
 }
 
 }  // bulk_insert
