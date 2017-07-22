@@ -30,6 +30,14 @@ void lower_bound_biased(benchmark::State& state) {
   });
 }
 
+void lower_bound_biased_tweaked(benchmark::State& state) {
+  searcher_benchmark(state, [](auto f, auto l, auto looking_for) {
+    return helpers::lower_bound_biased_tweaked(f, l, looking_for,
+                                               std::less<>{});
+  });
+}
+
+
 void lower_bound_standard(benchmark::State& state) {
   searcher_benchmark(state, [](auto f, auto l, auto looking_for) {
     return std::lower_bound(f, l, looking_for);
@@ -38,22 +46,32 @@ void lower_bound_standard(benchmark::State& state) {
 
 BENCHMARK(lower_bound_linear)->Arg(2);
 BENCHMARK(lower_bound_biased)->Arg(2);
+BENCHMARK(lower_bound_biased_tweaked)->Arg(2);
 BENCHMARK(lower_bound_standard)->Arg(2);
 
 BENCHMARK(lower_bound_linear)->Arg(10);
 BENCHMARK(lower_bound_biased)->Arg(10);
+BENCHMARK(lower_bound_biased_tweaked)->Arg(10);
 BENCHMARK(lower_bound_standard)->Arg(10);
 
 BENCHMARK(lower_bound_linear)->Arg(50);
 BENCHMARK(lower_bound_biased)->Arg(50);
+BENCHMARK(lower_bound_biased_tweaked)->Arg(50);
 BENCHMARK(lower_bound_standard)->Arg(50);
 
 BENCHMARK(lower_bound_linear)->Arg(200);
 BENCHMARK(lower_bound_biased)->Arg(200);
+BENCHMARK(lower_bound_biased_tweaked)->Arg(200);
 BENCHMARK(lower_bound_standard)->Arg(200);
 
 BENCHMARK(lower_bound_linear)->Arg(350);
 BENCHMARK(lower_bound_biased)->Arg(350);
+BENCHMARK(lower_bound_biased_tweaked)->Arg(350);
 BENCHMARK(lower_bound_standard)->Arg(350);
+
+BENCHMARK(lower_bound_linear)->Arg(500);
+BENCHMARK(lower_bound_biased)->Arg(500);
+BENCHMARK(lower_bound_biased_tweaked)->Arg(500);
+BENCHMARK(lower_bound_standard)->Arg(500);
 
 BENCHMARK_MAIN();

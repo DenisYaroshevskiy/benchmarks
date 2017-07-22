@@ -11,11 +11,11 @@
 
 namespace {
 
-constexpr int c_set_size = 100;
+constexpr int c_set_size = 1000;
 constexpr int c_distribution_size = 1000000;
 
-constexpr int c_min_input_size = 5;
-constexpr int c_max_input_size = 10;
+constexpr int c_min_input_size = 1;
+constexpr int c_max_input_size = 1000;
 constexpr int c_input_step = 1;
 
 using int_vec = std::vector<int>;

@@ -1,9 +1,11 @@
 #pragma once
 
 #include <algorithm>
+#include <cassert>
 #include <iterator>
 #include <vector>
 
+#include "benchmarks/bit_operations.h"
 #include "benchmarks/copy.h"
 
 namespace helpers {
@@ -67,6 +69,49 @@ template <typename I, typename V, typename P>
 I lower_bound_biased(I f, I l, const V& v, P p) {
   return partition_point_biased(f, l, less_than(p, v));
 }
+
+template <typename I, typename P, typename Check>
+// requires ForwardIterator<I> && UnaryPredicate<P, ValueType<I>>
+I partition_point_biased_unbound(I f, P p, Check check) {
+  auto step = 1;
+  I m = f;
+  while (true) {
+    check(m, step);
+    I m = std::next(f, step);
+    if (!p(*m))
+      break;
+    f = ++m;
+    step <<= 1;
+  }
+  return std::partition_point(f, m, p);
+}
+
+template <typename I, typename P>
+// requires ForwardIterator<I> && UnaryPredicate<P, ValueType<I>>
+I partition_point_biased_unbound(I f, P p) {
+  return partition_point_biased_unbound(f, p, [](auto...){});
+}
+
+template <typename I, typename P>
+// requires ForwardIterator<I> && UnaryPredicate<P, ValueType<I>>
+I partition_point_biased_tweaked(I f, I l, P p) {
+  auto len = std::distance(f, l);
+  if (len <= 1)
+    return f + ((len == 1) && p(*f));
+  auto sentinal = f + partition_point_biased_sentinal(len);
+  assert(sentinal < l);
+  if (p(*sentinal))
+    return std::partition_point(++sentinal, l, p);
+
+  return partition_point_biased_unbound(f, p);
+}
+
+template <typename I, typename V, typename P>
+// requires ForwardIterator<I> && StrictWeakOrdering<P, ValueType<I>>
+I lower_bound_biased_tweaked(I f, I l, const V& v, P p) {
+  return partition_point_biased_tweaked(f, l, less_than(p, v));
+}
+
 
 struct copy_traits
 {

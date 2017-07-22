@@ -1,7 +1,10 @@
 #include "benchmarks/insert_algorithms.h"
 
 #include <algorithm>
+#include <cstddef>
+#include <numeric>
 #include <functional>
+#include <iostream>
 
 #define CATCH_CONFIG_MAIN
 #include "third_party/catch/catch.h"
@@ -135,4 +138,49 @@ TEST_CASE("set_union_unique", "[multiple_insertions, helpers]") {
   test({1, 3}, {2, 4}, {1, 2, 3, 4});
   test({1, 3, 4}, {2, 4}, {1, 2, 3, 4});
   test({1, 2, 3, 6, 7}, {4, 6}, {1, 2, 3, 4, 6, 7});
+}
+
+TEST_CASE("first_significant_bit", "[bit_trics]") {
+  std::ptrdiff_t diff = 1;
+  for (int i = 0; i < 64; ++i)
+    CHECK(helpers::first_significant_bit_pos(diff << i) == i);
+}
+
+TEST_CASE("partition_point_biased_sentinal", "[bit_trics]") {
+  for (std::ptrdiff_t n = 16; n < 1000; ++n) {
+    std::cout << "n: " << n << std::endl;
+    auto sentinal = helpers::partition_point_biased_sentinal(n);
+    std::cout << "sentinal: " << sentinal << std::endl;
+    CHECK(sentinal < n);
+    std::vector<int> vec(static_cast<unsigned int>(n));
+    std::iota(vec.begin(), vec.end(), 0);
+
+    std::cout << "looking for value: " << vec[sentinal] << std::endl;
+
+    helpers::partition_point_biased_unbound(
+        vec.begin(), [&](const auto& x) {
+          std::cout << "Checking value: " << x << std::endl;
+          return x < vec[sentinal];
+        },
+        [&](const auto m, const auto step) {
+          REQUIRE((m - vec.begin()) + step < n);
+        });
+  }
+}
+
+TEST_CASE("lower_bound_biased_tweaked", "[multiple_insertions, helpers]") {
+  auto test = [](const std::vector<int>& c, const auto& v) {
+    auto biased = helpers::lower_bound_biased_tweaked(c.begin(), c.end(), v,
+                                                      std::less<>{});
+    auto std = std::lower_bound(c.begin(), c.end(), v);
+    CHECK(biased == std);
+  };
+
+  for (size_t size = 0; size < 100; ++size) {
+    std::vector<int> c(size);
+    std::iota(c.begin(), c.end(), 0);
+
+    for (int i = -1; i < static_cast<int>(size) + 1; ++i)
+      test(c, i);
+  }
 }
