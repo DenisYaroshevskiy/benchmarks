@@ -4,7 +4,7 @@
 #include <random>
 #include <iostream>
 
-#include "third_party/benchmark/include/benchmark/benchmark.h"
+#include "third_party/google_benchmark/include/benchmark/benchmark.h"
 
 namespace {
 
